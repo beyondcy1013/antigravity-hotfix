@@ -8,6 +8,15 @@
 
 ## 目录导航
 
+### 账号救援（优先）
+
+| 文档 | 内容概要 |
+| :--- | :--- |
+| [08. 谷歌账号救火：扫码验证、RT 失效与登录问题汇编](docs/08-account-rescue-and-qr-downgrade.md) | 统一扫码方法（手机 YouTube 相机扫码）、扫码类问题修复（短信发不出用 `google-qr-sms-helper`、反复 verify 走年龄验证）、冷门节点/iPad Mini 思路、RT 失效与设备锁救援，附登录问题原文 |
+| [09. 新号养号 SOP 与封号申诉指南](docs/09-account-security-sop-and-appeal.md) | IP 自检、Chrome 多开隔离、安全设置 6 步严格顺序、Antigravity 停用表单与英文申诉技巧 |
+
+### 使用说明与扩展
+
 | 文档 | 内容概要 |
 | :--- | :--- |
 | [01. 四大终端形态与核心交互技巧](docs/01-surfaces-and-shortcuts.md) | CLI (`agy`)、IDE、Antigravity 2.0、Python SDK 定位差异；Tab 智能补全/跳转、内联指令、`@` 上下文引用与媒体上传 |
@@ -17,8 +26,6 @@
 | [05. 生命周期钩子（Hooks）深度实战](docs/05-hooks-and-automation.md) | `hooks.json` 6 大生命周期事件、工具拦截与参数改写（`overwrite`）、上下文注入及防死循环技巧 |
 | [06. MCP 协议集成与安全沙箱策略](docs/06-mcp-and-security.md) | `mcp_config.json`（Stdio & Streamable HTTP）、全局/项目级权限覆盖、命令白名单与终端沙箱 |
 | [07. Python SDK 与工程化最佳实践](docs/07-python-sdk-and-best-practices.md) | `google-antigravity` 异步编程、思维链/工具调用实时流监听、交互式循环与高频避坑指南 |
-| [08. 谷歌账号救火：扫码验证、RT 失效与登录问题汇编](docs/08-account-rescue-and-qr-downgrade.md) | 统一扫码方法（手机 YouTube 相机扫码）、扫码类问题修复（短信发不出用 `google-qr-sms-helper`、反复 verify 走年龄验证）、冷门节点/iPad Mini 思路、RT 失效与设备锁救援，附登录问题原文 |
-| [09. 新号养号 SOP 与封号申诉指南](docs/09-account-security-sop-and-appeal.md) | IP 自检、Chrome 多开隔离、安全设置 6 步严格顺序、Antigravity 停用表单与英文申诉技巧 |
 
 ---
 

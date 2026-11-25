@@ -16,6 +16,11 @@ OUT = ROOT / "_site"
 SITE_NAME = "Antigravity Hotfix"
 REPO_URL = "https://github.com/beyondcy1013/antigravity-hotfix"
 
+RESCUE_DOCS = {
+    "08-account-rescue-and-qr-downgrade",
+    "09-account-security-sop-and-appeal",
+}
+
 MD_EXTENSIONS = ["extra", "toc", "sane_lists"]
 
 SCRIPT = """
@@ -124,6 +129,15 @@ aside nav a:hover { background: var(--soft); text-decoration: none; }
 aside nav a.active { background: var(--soft); color: var(--accent); font-weight: 600; }
 aside nav a .num { color: var(--muted); margin-right: 6px; font-variant-numeric: tabular-nums; }
 aside nav a.active .num { color: var(--accent); }
+aside nav .nav-group {
+  margin: 16px 0 6px;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  color: var(--muted);
+}
+aside nav a + .nav-group { margin-top: 18px; }
 aside nav .subnav {
   display: flex;
   flex-direction: column;
@@ -341,25 +355,28 @@ def headings(body: str) -> list[tuple[int, str, str]]:
 
 
 def nav_html(
-    items: list[tuple[str, str, str]],
+    groups: list[tuple[str, list[tuple[str, str, str]]]],
     active_href: str,
     prefix: str,
     subs_map: dict[str, list[tuple[int, str, str]]] | None = None,
 ) -> str:
     rows: list[str] = []
-    for href, title, num in items:
-        active = href == active_href
-        rows.append(
-            f'<a class="{"active" if active else ""}" href="{prefix}{href}">'
-            f'<span class="num">{num}</span>{html.escape(display_title(title))}</a>'
-        )
-        links = [
-            f'<a class="lvl{level}" href="#{html.escape(hid)}">{html.escape(text)}</a>'
-            for level, hid, text in (subs_map or {}).get(href, [])
-            if level == 2 or active
-        ]
-        if links:
-            rows.append(f'<div class="subnav">{"".join(links)}</div>')
+    for group_title, items in groups:
+        if group_title:
+            rows.append(f'<p class="nav-group">{html.escape(group_title)}</p>')
+        for href, title, num in items:
+            active = href == active_href
+            rows.append(
+                f'<a class="{"active" if active else ""}" href="{prefix}{href}">'
+                f'<span class="num">{num}</span>{html.escape(display_title(title))}</a>'
+            )
+            links = [
+                f'<a class="lvl{level}" href="#{html.escape(hid)}">{html.escape(text)}</a>'
+                for level, hid, text in (subs_map or {}).get(href, [])
+                if level == 2 or active
+            ]
+            if links:
+                rows.append(f'<div class="subnav">{"".join(links)}</div>')
     return "\n".join(rows)
 
 
@@ -403,11 +420,17 @@ def main() -> None:
         shutil.copytree(assets, OUT / "docs" / "assets")
 
     docs = sorted((ROOT / "docs").glob("*.md"))
-    items: list[tuple[str, str, str]] = []
+    entries: dict[str, tuple[str, str, str]] = {}
     for path in docs:
         title = doc_title(path)
-        items.append((f"docs/{path.stem}.html", title, short_number(title)))
-    nav_items = [("index.html", "总览与导航", "")] + items
+        entries[path.stem] = (f"docs/{path.stem}.html", title, short_number(title))
+    rescue = [entries[p.stem] for p in docs if p.stem in RESCUE_DOCS]
+    usage = [entries[p.stem] for p in docs if p.stem not in RESCUE_DOCS]
+    nav_groups = [
+        ("", [("index.html", "总览与导航", "")]),
+        ("账号救援", rescue),
+        ("使用说明与扩展", usage),
+    ]
 
     rendered: dict[str, str] = {}
     subs_map: dict[str, list[tuple[int, str, str]]] = {}
@@ -422,7 +445,7 @@ def main() -> None:
     (OUT / "index.html").write_text(
         page_html(
             SITE_NAME,
-            nav_html(nav_items, "index.html", "", subs_map),
+            nav_html(nav_groups, "index.html", "", subs_map),
             index_body,
             "",
         ),
@@ -435,7 +458,7 @@ def main() -> None:
         (OUT / "docs" / f"{path.stem}.html").write_text(
             page_html(
                 f"{title} · {SITE_NAME}",
-                nav_html(nav_items, href, "../", subs_map),
+                nav_html(nav_groups, href, "../", subs_map),
                 rendered[path.stem],
                 "../",
             ),
