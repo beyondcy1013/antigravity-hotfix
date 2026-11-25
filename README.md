@@ -1,5 +1,7 @@
 # Antigravity Hotfix — AGY 紧急救援与全技巧实战手册
 
+> 在线阅读：<https://beyondcy1013.github.io/antigravity-hotfix/>
+>
 > **救火 · 排障 · 高效实战**：系统整理 Google Antigravity（**CLI `agy`**、**Antigravity IDE**、**Antigravity 2.0 桌面端**、**Python SDK**）的急救技巧、防踩坑策略、自定义扩展（Rules / Skills / Plugins / Hooks / MCP）与自动化工作流。
 
 ---
