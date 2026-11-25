@@ -6,6 +6,7 @@ from __future__ import annotations
 import html
 import re
 import shutil
+import unicodedata
 from pathlib import Path
 
 import markdown
@@ -16,6 +17,18 @@ SITE_NAME = "Antigravity Hotfix"
 REPO_URL = "https://github.com/beyondcy1013/antigravity-hotfix"
 
 MD_EXTENSIONS = ["extra", "toc", "sane_lists"]
+
+SCRIPT = """
+<script>
+(() => {
+  const active = document.querySelector("aside nav a.active");
+  const box = document.querySelector("aside");
+  if (!active || !box || box.scrollHeight <= box.clientHeight) return;
+  const offset = active.getBoundingClientRect().top - box.getBoundingClientRect().top;
+  box.scrollTop += offset - box.clientHeight / 3;
+})();
+</script>
+"""
 
 ALERT_LABELS = {
     "TIP": "提示",
@@ -83,7 +96,15 @@ header.topbar .links { display: flex; gap: 18px; font-size: 14px; }
   margin: 0 auto;
   padding: 0 24px;
 }
-aside { padding: 28px 24px 48px 0; border-right: 1px solid var(--border); }
+aside {
+  position: sticky;
+  top: 56px;
+  align-self: start;
+  max-height: calc(100vh - 56px);
+  overflow-y: auto;
+  padding: 28px 24px 48px 0;
+  border-right: 1px solid var(--border);
+}
 aside .nav-title {
   font-size: 12px;
   letter-spacing: .08em;
@@ -103,6 +124,21 @@ aside nav a:hover { background: var(--soft); text-decoration: none; }
 aside nav a.active { background: var(--soft); color: var(--accent); font-weight: 600; }
 aside nav a .num { color: var(--muted); margin-right: 6px; font-variant-numeric: tabular-nums; }
 aside nav a.active .num { color: var(--accent); }
+aside nav .subnav {
+  display: flex;
+  flex-direction: column;
+  margin: 2px 0 8px 12px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border);
+}
+aside nav .subnav a {
+  padding: 3px 6px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+aside nav .subnav a:hover { color: var(--fg); background: transparent; }
+aside nav .subnav a.lvl3 { padding-left: 16px; font-size: 12px; }
 main { min-width: 0; padding: 40px 0 80px 40px; }
 article { max-width: 860px; }
 article h1 { font-size: 30px; line-height: 1.3; margin: 0 0 20px; }
@@ -172,7 +208,15 @@ footer {
 }
 @media (max-width: 900px) {
   .layout { grid-template-columns: 1fr; padding: 0 16px; }
-  aside { border-right: none; border-bottom: 1px solid var(--border); padding: 16px 0; }
+  aside {
+    position: static;
+    max-height: none;
+    overflow: visible;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding: 16px 0;
+  }
+  aside nav .subnav { display: none; }
   aside nav { flex-direction: row; overflow-x: auto; gap: 4px; padding-bottom: 4px; }
   aside nav a { white-space: nowrap; font-size: 13px; }
   aside .nav-title { display: none; }
@@ -221,10 +265,19 @@ def separate_lists(md_text: str) -> str:
     return "\n".join(result)
 
 
+def unicode_slugify(value: str, separator: str) -> str:
+    value = unicodedata.normalize("NFKC", value)
+    value = re.sub(r"[^\w\s-]", "", value, flags=re.UNICODE).strip().lower()
+    return re.sub(rf"[{separator}\s]+", separator, value)
+
+
 def render(md_text: str) -> str:
-    body = markdown.markdown(
-        separate_lists(md_text), extensions=MD_EXTENSIONS, output_format="html5"
+    md = markdown.Markdown(
+        extensions=MD_EXTENSIONS,
+        extension_configs={"toc": {"slugify": unicode_slugify}},
+        output_format="html5",
     )
+    body = md.convert(separate_lists(md_text))
 
     def alert_repl(match: re.Match[str]) -> str:
         kind = match.group(1).lower()
@@ -262,15 +315,37 @@ def rewrite_links(body: str, prefix: str) -> str:
     return re.sub(r'(href=)"([^"]+)"', repl, body)
 
 
-NAV_STYLE = ""
+HEADING_RE = re.compile(r'<h([23])\s+id="([^"]+)"[^>]*>(.*?)</h\1>', re.S)
 
 
-def nav_html(items: list[tuple[str, str, str]], active_href: str, prefix: str) -> str:
-    rows = [
-        f'<a class="{"active" if href == active_href else ""}" href="{prefix}{href}">'
-        f'<span class="num">{num}</span>{html.escape(display_title(title))}</a>'
-        for href, title, num in items
-    ]
+def headings(body: str) -> list[tuple[int, str, str]]:
+    result: list[tuple[int, str, str]] = []
+    for match in HEADING_RE.finditer(body):
+        text = html.unescape(re.sub(r"<[^>]+>", "", match.group(3))).strip()
+        result.append((int(match.group(1)), match.group(2), text))
+    return result
+
+
+def nav_html(
+    items: list[tuple[str, str, str]],
+    active_href: str,
+    prefix: str,
+    subs_map: dict[str, list[tuple[int, str, str]]] | None = None,
+) -> str:
+    rows: list[str] = []
+    for href, title, num in items:
+        active = href == active_href
+        rows.append(
+            f'<a class="{"active" if active else ""}" href="{prefix}{href}">'
+            f'<span class="num">{num}</span>{html.escape(display_title(title))}</a>'
+        )
+        links = [
+            f'<a class="lvl{level}" href="#{html.escape(hid)}">{html.escape(text)}</a>'
+            for level, hid, text in (subs_map or {}).get(href, [])
+            if level == 2 or active
+        ]
+        if links:
+            rows.append(f'<div class="subnav">{"".join(links)}</div>')
     return "\n".join(rows)
 
 
@@ -299,6 +374,7 @@ def page_html(title: str, nav: str, body: str, prefix: str) -> str:
   </main>
 </div>
 <footer>基于 Google Antigravity 官方文档与一线实战经验整理。</footer>
+{SCRIPT}
 </body>
 </html>
 """
@@ -316,12 +392,20 @@ def main() -> None:
         items.append((f"docs/{path.stem}.html", title, short_number(title)))
     nav_items = [("index.html", "总览与导航", "")] + items
 
+    rendered: dict[str, str] = {}
+    subs_map: dict[str, list[tuple[int, str, str]]] = {}
+    for path in docs:
+        href = f"docs/{path.stem}.html"
+        body = rewrite_links(render(path.read_text(encoding="utf-8")), "../")
+        rendered[path.stem] = body
+        subs_map[href] = headings(body)
+
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     index_body = rewrite_links(render(readme), "")
     (OUT / "index.html").write_text(
         page_html(
             SITE_NAME,
-            nav_html(nav_items, "index.html", ""),
+            nav_html(nav_items, "index.html", "", subs_map),
             index_body,
             "",
         ),
@@ -330,12 +414,12 @@ def main() -> None:
 
     for path in docs:
         title = doc_title(path)
-        body = rewrite_links(render(path.read_text(encoding="utf-8")), "../")
+        href = f"docs/{path.stem}.html"
         (OUT / "docs" / f"{path.stem}.html").write_text(
             page_html(
                 f"{title} · {SITE_NAME}",
-                nav_html(nav_items, f"docs/{path.stem}.html", "../"),
-                body,
+                nav_html(nav_items, href, "../", subs_map),
+                rendered[path.stem],
                 "../",
             ),
             encoding="utf-8",
