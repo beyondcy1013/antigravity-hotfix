@@ -197,7 +197,21 @@ article pre {
   line-height: 1.55;
 }
 article pre code { background: none; border: none; padding: 0; font-size: 13px; }
-article img { max-width: 100%; height: auto; }
+article img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 18px 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+article p > em:only-child {
+  display: block;
+  margin: 0 0 20px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
 footer {
   max-width: 1200px;
   margin: 0 auto;
@@ -384,6 +398,9 @@ def main() -> None:
     if OUT.exists():
         shutil.rmtree(OUT)
     (OUT / "docs").mkdir(parents=True)
+    assets = ROOT / "docs" / "assets"
+    if assets.exists():
+        shutil.copytree(assets, OUT / "docs" / "assets")
 
     docs = sorted((ROOT / "docs").glob("*.md"))
     items: list[tuple[str, str, str]] = []
