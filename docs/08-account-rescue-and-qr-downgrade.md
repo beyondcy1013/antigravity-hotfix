@@ -1,6 +1,6 @@
-# 08. 谷歌账号救火：扫码验证降级、RT 失效与设备锁解救
+# 08. 谷歌账号救火：扫码验证、RT 失效与登录问题汇编
 
-> 本篇整理自一线 Antigravity / Google 账号运维实战经验，聚焦 **RT（Refresh Token）失效、强制扫码验证（QR Code）、“无法验证此设备”** 等高频突发故障的应急救援方案与底层风控原理。
+> 本篇整理自一线 Antigravity / Google 账号运维实战经验，聚焦 **RT（Refresh Token）失效、强制扫码验证（QR Code）、“无法验证此设备”** 等高频突发故障，并给出 **手机扫码三条通路**（YouTube / 原生相机 / Google App）、**短信降级插件** 与 **登录问题原文汇编**。
 
 ---
 
@@ -34,13 +34,83 @@
 ---
 
 ### 3. 救火方案 B：伪装设备降级（iPad Mini 思路）
-由于 Antigravity 与 Google Cloud 共用同一套认证体系，当网页端卡死在扫码验证且发短信一直转圈时：
-- 可利用社区思路（如 `google-qr-sms-helper`），在 Google Cloud Shell 环境中通过**将设备伪装为 iPad Mini**（系统判定该设备无法使用手机扫码），强制将认证流程降级为向手机发送 **6 位短信验证码**，验证通过后即可连带解锁 Antigravity。
-- 若遇到发短信一直转圈提示“这可能需要一些时间”，部分场景将节点临时切换至**香港**或使用手机端 Google App 辅助验证也可恢复（注意操作后切忌继续频繁切 IP）。
+
+当网页端卡死在扫码验证且发短信一直转圈时，可用社区插件 `google-qr-sms-helper` 把强制跨设备扫码降级回 **6 位短信验证码**：核心是把设备伪装成 **iPad Mini**（Google 判定该设备无法扫码），并通过 `[3, null, 4]` RPC 回退到短信选择页。
+
+完整安装与操作步骤见 **本篇 二、2**，注意必须先从 Google Cloud Console 的 Cloud Shell 唤出原生 Verify 窗口，**不要**直接从 Antigravity 授权页的二维码降级。
 
 ---
 
-## 二、“无法验证此设备”与设备锁解救
+## 二、需要扫码的情况：三条通路
+
+出现 `Verify` / `Further Action` 要求扫码时，按下面顺序试。**验证成功后回 Antigravity 点 `sign in again` 重新登录即可，不要再反复切 IP。**
+
+### 1. 通路一：手机扫码直接过（首选，成本最低）
+
+先试手机原生相机；不行再换 YouTube 或 Google App，三者都是让手机端把“已登录的账号”授权给桌面端。
+
+**1.1 手机原生相机**
+- 手机开好代理，用系统相机直接扫桌面二维码。
+- 部分机型（如小米）**有概率不发短信就直接完成验证**。
+- 若扫完仍要求“向手机发送短信”，说明这条不通，转 2 或 3。
+
+**1.2 YouTube 扫码（弹 App 转一圈就过）**
+- 手机安装 YouTube，并已登录要验证的那个 Google 账号，全程挂好代理。
+- 用手机系统相机对准二维码，系统会提示“在 YouTube 中打开”，点进去。
+- YouTube 内转一圈即完成验证，桌面端自动通过，不需要短信。
+
+**1.3 Google App 扫码（原贴“焚决”）**
+- 手机设置里搜索 **“谷歌基础服务管理”**，打开该选项。
+- 应用商店下载 **Google**，登录一个**正常的** Google 账号（自己注册的一般可以）。
+- 打开 Google App，选择**相机扫码**（记得开魔法）。
+- 看到确认界面后点 **“是，继续”**，显示“通过验证 / 身份认证成功”即成功。
+- 若仍提示要发短信，基本就是此路不通：换节点、换登录 Google App 的账号、换设备，反复重试。
+- 通过后返回 Antigravity，选择 `sign in again` 再次登录；若仍要求 verify，见 3。
+
+### 2. 通路二：扫码后要发短信，但发送不成功 → `google-qr-sms-helper`
+
+**症状**：正常浏览器扫码后会要求向手机发送短信，但短信**要么发不出去、要么发出去没反应**。
+
+**原理**：这是一个 Chrome MV3 扩展，自动识别页面二维码，向 Google 发送 `MypxBd` 与 `YDtwf` 数据包拿到 `[3, null, 4]`（非 Android 设备回退状态），并把请求头全路径伪装成 **iPad Mini**，跳转到 `uplevelingstep/selection` 短信/语音选择页。
+
+> [!IMPORTANT]
+> **核心前提**：**不要**从 Antigravity / Gemini Code Assist 授权页弹出的二维码直接降级（其 `continue` 参数包含多层嵌套重定向，会被 Google 重新打回二维码）。**必须先打开 Google Cloud Console，用 Cloud Shell 唤出原生 Verify 窗口**；在这里过完一次短信验证后，账号权限全局解锁，再回 Antigravity 登录即可直接通过。
+
+**安装：**
+1. 到 `havenicec/google-qr-sms-helper` 的 Releases 下载最新 zip（或 `git clone` 仓库），解压到本地文件夹。
+2. Chrome / Edge 地址栏打开 `chrome://extensions/`，开启右上角 **开发者模式**。
+3. 点 **“加载已解压的扩展程序”**，选中解压出的文件夹。浏览器需 Chrome / Edge 88+（依赖原生 `BarcodeDetector`）。
+
+**使用：**
+1. 浏览器登录待验证的 Google 账号，打开 `https://console.cloud.google.com/`。
+2. 点右上角 **Cloud Shell `[>_]`** 图标（或插件悬浮面板的“1. 自动点击 Cloud Shell 终端图标”）。
+3. 底部弹出 `Verify your account` 窗口，点蓝色 **Verify**。
+4. 等二维码完全加载后，点右下角插件面板的 **“⚡ 一键降级到短信选择框”**。
+5. 页面跳到验证方式选择页，勾选 **Text message (SMS)**（或语音通话），下一步。
+6. 填入接码手机号（任意国家/地区实体卡或接码平台均可），点发送。
+7. 收到 `G-xxxxxx` 6 位验证码后填入，点 **Next**。
+8. 验证通过后回 Cloud Shell / Antigravity 刷新即可正常使用。
+
+**排错：**
+- 点降级后又跳回二维码：检查是否从 **Cloud Shell → Verify** 入口进入，而不是从其它链接。
+- 提示“未能在当前页面识别到二维码”：确认浏览器版本，并等二维码图案完全显示后再点。
+- 不要手动按 F12 切设备：插件已通过 `declarativeNetRequest` 全路径覆盖 iPad Mini 请求头，提交验证码前后 UA 必须一致，手动改反而会失败。
+
+### 3. 通路三：验证成功却反复 verify → 年龄验证
+
+**症状**：浏览器显示身份验证成功，但回到 Antigravity 点 `sign in again` 后，仍然显示需要 verify。
+
+**原因**：Antigravity 需要**年龄验证**（见 `https://antigravity.google/docs/faq`）。
+
+**解决：**
+1. 打开 `https://myaccount.google.com/age-verification`。
+2. 可选**自拍人脸识别**或**上传证件**，推荐自拍。
+3. 点 **Take a selfie** 后会显示一个二维码，其本质是一个网址：可用任意浏览器扫码，或点 `link` 复制 http 链接到手机浏览器打开，然后做人脸识别（实测一张脸可以无限扫）。
+4. 显示认证通过后，返回 Antigravity 选择 `sign in again` 重新登录。
+
+---
+
+## 三、“无法验证此设备”与设备锁解救
 
 当登录报错 **`Could not verify this device`（无法验证此设备）** 或 **`您正在尝试在 Google 无法识别的设备上登录`** 时：
 
@@ -51,4 +121,82 @@
 3. **踢出陌生设备报验证怎么办？**
    如果刚接手账号时踢出陌生设备触发验证提示，**不要硬踢**，先保持同一稳定 IP 正常使用 **2 天**，等设备信任度建立后再清理。
 4. **手机端登录时机**
-   新环境稳定前不建议立刻在手机端登录（手机网络极易跳 IP）；建议桌面端稳定 **48 小时后**再在手机登录，且手机端务必全程开启稳定代理。
+   新环境稳定前不建议立刻在手机端登录（手机网络极易跳 IP）；建议桌面端稳定 **48 小时** 后再在手机登录，且手机端务必全程开启稳定代理。
+
+---
+
+## 四、附：Antigravity 登录问题原文汇编
+
+> 以下内容整理自《反重力地区错误，扫码以及其他登录问题焚决》，保留原意与关键步骤。
+
+### 1. 在浏览器成功登录账号、但不跳转反重力
+
+**现象**：浏览器里成功登录了账号，但就是不跳转反重力；或者反重力一直转圈。
+
+**原因**：网络问题——浏览器和反重力走的不是同一条网络通路。
+
+**解决办法：**
+
+**1.1 调整网络设置**
+- 打开代理的 **TUN 模式 / 虚拟网卡模式**。
+- 如果还不跳转，再尝试 1.2。
+
+**1.2 下载 antigravity tools**
+- 下载地址：`https://github.com/lbjlaq/Antigravity-Manager/releases`，选最新版本，点 **Show all**。
+- 找到与操作系统对应的版本（Windows 选 `.exe` 安装包）。
+- 打开 antigravity tools，点右上角 **“添加账号”** → **“oauth 授权”**，登录账号后点 **“一键切换”** 即可打开反重力。
+- 平时使用：点右上角账号管理图标，勾选账号，点 **转换** 按钮即可打开反重力。
+- 如果 antigravity 里出现任何 error：点左下角 **设置 → account → sign out**，退出重登账号，多试几次一般就行。
+
+### 2. count ineligible（账号不符合资格）
+
+**原因**：账号地区不符合。
+- 打开 `https://policies.google.com/terms` 可查看 Google 账号地区。
+- 打开 `https://antigravity.google/docs/faq` 可查看 Antigravity 支持的账号地区，对照自己的地区是否在列表内。
+
+**解决办法**：申请修改账号地区到 Antigravity 支持的区域，等 Google 回应即可。
+- 访问 `https://policies.google.com/country-association-form`，登录账号即可申请修改。
+- **注意：该项每年仅允许修改一次**，修改成功后一年之内不允许再次修改。
+- 方法 1：有反馈说直接写“我住这”就能直接通过（4、5 个号都是这样过的）。
+- 方法 2：也有反馈说选择最后一个 **“以上都不是”**，参考申请理由：**“我因工作需要用到 xxx，请帮我更改到 xxx”**。
+
+### 3. Unexpected issue（Post 错误，带 `daily-cloudcode` 字样）
+
+**3.1 EOF**
+- 原因：网络错误，即代理节点质量太差，不支持 Antigravity。
+- 解决：切换其他节点、开启代理的 TUN 模式 / 虚拟网卡模式重试。
+
+**3.2 invalid_grant**
+- 原因：Antigravity 里该账号的 OAuth 登录状态过期。
+- 解决：在 Antigravity 里选择 **“continue with different account”**，重新登录该账号。
+
+**3.3 context deadline exceeded**
+- 原因：请求超时。
+- 解决：重试即可。
+
+**3.4 其他 unexpected issue**
+- 统一按网络问题处理：切换节点、开启 TUN 模式 / 虚拟网卡模式重试。
+
+### 4. Gemini 提示“发生错误 / 你所在的国家和地区不可用”
+
+**常见提示：**
+- `gemini 发生错误 请稍后再试。了解详情`
+- `gemini please try again later error status unavailable`
+- `gemini something went wrong try again later. learn more`
+- `gemini 你所在的國家/地區目前不支援 gemini。請密切留意後續消息`
+- `gemini 你所在的国家和地区不可用`
+
+**可能原因：**
+1. 建议年满 18 周岁才能使用工作帐户访问 Gemini（可查看 Google 账号信息）。
+2. 所在国家/地区不支持 Gemini（可查询 Google 账号所在国家/地区）。
+
+**更改账号地区**：点击“更改国家或地区”，按页面提示提交。
+
+**创建并使用 Gem：** 打开 Gem 创建页，填入以下内容：
+- Name：每天工作
+- Description：把每天所想的内容有条理的梳理出来
+- Instructions：
+  - 角色扮演：你是一个内容整理师 AI
+  - 前景描述：我每天散步的时候，会用苹果手机自带的录音转文字功能，用口述的方式，把每天学到的内容整理一遍，中间可能会存在一些啰嗦或者重复的内容；
+  - 最终目的：你需要把这些内容重新整理一遍，方便我阅读和使用；
+  - 功能要点：我会经常给你发送内容，你需要按照时间线的方式整理出来，方便我日后按照时间线定位查阅。
