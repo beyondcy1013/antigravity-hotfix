@@ -6,6 +6,34 @@
 
 ---
 
+## 问题索引（按症状直达）
+
+### 登录与账号
+
+- 登录时要求**扫码验证** → [一步扫码方法](docs/08-account-rescue-and-qr-downgrade.md#二需要扫码一个使用方法手机-youtube-扫码)
+- 扫码后**短信发不出去 / 发了没反应** → [用 qr-sms-helper 降级短信](docs/08-account-rescue-and-qr-downgrade.md#1-扫码后要发短信但发送不成功-google-qr-sms-helper)
+- 验证成功却**反复 verify → sign in again** → [年龄验证](docs/08-account-rescue-and-qr-downgrade.md#2-验证成功却反复-verify-年龄验证)
+- 浏览器登录成功但**不跳转反重力 / 一直转圈** → [登录不跳转处理](docs/08-account-rescue-and-qr-downgrade.md#1-在浏览器成功登录账号但不跳转反重力)
+- 提示 **count ineligible（账号不符合资格）** → [修改账号地区](docs/08-account-rescue-and-qr-downgrade.md#2-count-ineligible账号不符合资格)
+- 提示**无法验证此设备**，或频繁触发设备验证 → [设备锁解救](docs/08-account-rescue-and-qr-downgrade.md#四无法验证此设备与设备锁解救)
+- 报错 **EOF / invalid_grant / context deadline exceeded** → [按错误码处理](docs/08-account-rescue-and-qr-downgrade.md#3-unexpected-issuepost-错误带-daily-cloudcode-字样)
+- **RT 失效 / 频繁掉登录 / 强制扫码** → [RT 与扫码救火](docs/08-account-rescue-and-qr-downgrade.md#一rt-失效与强制扫码验证qr-code救火)
+- **Gemini 提示地区不可用 / 发生错误** → [地区与 Gemini 排查](docs/08-account-rescue-and-qr-downgrade.md#4-gemini-提示发生错误-你所在的国家和地区不可用)
+- 账号被**停用，需要申诉** → [申诉流程](docs/09-account-security-sop-and-appeal.md#四服务停用与封号申诉appeal指南)
+- 新号**养号 / 安全改密顺序** → [养号 SOP](docs/09-account-security-sop-and-appeal.md#一登录前准备与前两周养号-sop)
+
+### 使用与扩展
+
+- 不知道选 **CLI / IDE / 桌面端 / SDK** → [01. 四大终端形态](docs/01-surfaces-and-shortcuts.md)
+- 想用**斜杠命令、子智能体、定时任务** → [02. 斜杠命令与自动化](docs/02-slash-commands-and-workflows.md)
+- **规则文件**怎么写、上下文总超预算 → [03. Rules 与上下文预算](docs/03-rules-and-context-budget.md)
+- **技能 / 插件**怎么装、怎么共享 → [04. Skills 与 Plugins](docs/04-skills-and-plugins.md)
+- 想用 **Hooks** 做拦截、改写、自动 lint → [05. Hooks](docs/05-hooks-and-automation.md)
+- 要接 **MCP**、配置权限与沙箱 → [06. MCP 与安全](docs/06-mcp-and-security.md)
+- 用 **Python SDK** 做流式监听与工程化 → [07. Python SDK](docs/07-python-sdk-and-best-practices.md)
+
+---
+
 ## 目录导航
 
 ### 账号救援（优先）

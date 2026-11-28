@@ -329,14 +329,16 @@ def rewrite_links(body: str, prefix: str) -> str:
         href = match.group(2)
         if href.startswith(("http://", "https://", "#", "mailto:")):
             return match.group(0)
-        if href.endswith(".md"):
-            if href.startswith("docs/"):
-                href = href[5:] if prefix else href
-            elif href.lower() == "readme.md":
-                href = "index"
-            href = href[:-3] + ".html"
-            if href.startswith("index.html") or "index.html" in href:
-                href = prefix + "index.html"
+        path, sep, anchor = href.partition("#")
+        if path.lower().endswith(".md"):
+            if path.startswith("docs/"):
+                path = path[5:] if prefix else path
+            elif path.lower() == "readme.md":
+                path = "index"
+            path = path[:-3] + ".html"
+            if "index.html" in path:
+                path = prefix + "index.html"
+            href = path + (sep + anchor if sep else "")
             return f'{match.group(1)}"{href}"'
         return match.group(0)
 
@@ -359,13 +361,17 @@ def nav_html(
     active_href: str,
     prefix: str,
     subs_map: dict[str, list[tuple[int, str, str]]] | None = None,
+    expand_hrefs: set[str] | None = None,
 ) -> str:
+    expand_hrefs = expand_hrefs or set()
     rows: list[str] = []
     for group_title, items in groups:
         if group_title:
             rows.append(f'<p class="nav-group">{html.escape(group_title)}</p>')
         for href, title, num in items:
-            active = href == active_href
+            active = href == active_href or (
+                active_href == "index.html" and href.startswith("index.html#")
+            )
             rows.append(
                 f'<a class="{"active" if active else ""}" href="{prefix}{href}">'
                 f'<span class="num">{num}</span>{html.escape(display_title(title))}</a>'
@@ -373,7 +379,7 @@ def nav_html(
             links = [
                 f'<a class="lvl{level}" href="#{html.escape(hid)}">{html.escape(text)}</a>'
                 for level, hid, text in (subs_map or {}).get(href, [])
-                if level == 2 or active
+                if level == 2 or active or href in expand_hrefs
             ]
             if links:
                 rows.append(f'<div class="subnav">{"".join(links)}</div>')
@@ -427,10 +433,11 @@ def main() -> None:
     rescue = [entries[p.stem] for p in docs if p.stem in RESCUE_DOCS]
     usage = [entries[p.stem] for p in docs if p.stem not in RESCUE_DOCS]
     nav_groups = [
-        ("", [("index.html", "总览与导航", "")]),
+        ("", [("index.html#问题索引按症状直达", "问题索引", "")]),
         ("账号救援", rescue),
         ("使用说明与扩展", usage),
     ]
+    rescue_hrefs = {entries[p.stem][0] for p in docs if p.stem in RESCUE_DOCS}
 
     rendered: dict[str, str] = {}
     subs_map: dict[str, list[tuple[int, str, str]]] = {}
@@ -445,7 +452,7 @@ def main() -> None:
     (OUT / "index.html").write_text(
         page_html(
             SITE_NAME,
-            nav_html(nav_groups, "index.html", "", subs_map),
+            nav_html(nav_groups, "index.html", "", subs_map, rescue_hrefs),
             index_body,
             "",
         ),
@@ -458,7 +465,7 @@ def main() -> None:
         (OUT / "docs" / f"{path.stem}.html").write_text(
             page_html(
                 f"{title} · {SITE_NAME}",
-                nav_html(nav_groups, href, "../", subs_map),
+                nav_html(nav_groups, href, "../", subs_map, rescue_hrefs),
                 rendered[path.stem],
                 "../",
             ),
